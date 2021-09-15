@@ -7,17 +7,17 @@ local({
   
   generate_dfs <- function(file) {
     df <- read.csv(file, header = FALSE)
-    emptycols <- vapply(df, \(col) all(is.na(col)), logical(1))
+    emptycols <- vapply(df, function(col) all(is.na(col)), logical(1))
     df <- df[, !emptycols]
     id_col <- 
-      data.frame(mod = rep(extract_module_num(file), nrow(df)))
+      data.frame(mod = rep(extractModuleNumber(file), nrow(df)))
     df <- cbind(id_col, df)
     if (ncol(df) == 14L)
       return(df)
     df[,-3]
   }
   
-  extract_module_num <- function(file) {
+  extractModuleNumber <- function(file) {
     str <- basename(file)
     as.integer(sub("(Module\\s0)(\\d)(.+csv$)", "\\2", str))
   }
