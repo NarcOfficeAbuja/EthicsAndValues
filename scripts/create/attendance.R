@@ -45,9 +45,8 @@ local({
     mutate(across(matches("name$"), toupper)) %>%
     mutate(dob = as.Date(fixdate(dob), "%m/%d/%Y")) %>%
     mutate(dob = as.character(dob)) %>%
-    mutate(gender = as_factor(gender)) %>%
-    mutate(educ = as_factor(educ)) %>%
-    mutate(prev_proj = factor(prev_proj, c("Yes", "No"))) %>%
+    mutate(gender = ifelse(gender == "  ", NA_character_, gender)) %>%
+    mutate(prev_proj = ifelse(prev_proj == "Yes, No", NA_character_, prev_proj)) %>%
     mutate(mobile = fix_mobile(mobile))
   
   
@@ -77,21 +76,20 @@ local({
   names.only <- select(newdt, 1:4)
   
   ## Get modules table
-  
   mod <- read_cohort_dbtable('modules') %>%
     select(!module_name)
   tbl <- newdt %>%
     select(!matches('name|course', ignore.case = TRUE)) %>%
-    rename(student_id = id) %>%
+    rename(sId = id) %>%
     pivot_longer(matches("^vRD"),
                  names_to = "module_code",
                  values_to = "attended") %>%
-    mutate(student_id = as.integer(student_id)) %>%
+    mutate(sId = as.integer(sId)) %>%
     mutate(module_code = str_replace(module_code, "\\.", " ")) %>%
     left_join(mod, by = "module_code") %>%
     select(!module_code) %>%
-    rename(module_id = id) %>%
-    relocate(module_id)
+    rename(mId = id) %>%
+    relocate(mId)
   
   
   ## ---- Create the tables ----
