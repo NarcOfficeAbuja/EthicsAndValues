@@ -1,22 +1,34 @@
 # Create the database
 library(RSQLite, quietly = TRUE)
 suppressPackageStartupMessages(library(tidyverse))
+
 local({
   source(here::here("scripts/helpers.R"), local = TRUE)
   
-  allweeks <-
-    list.files('downloads/eval/results', full.names = TRUE) |>
-    lapply(\(file) {
-      df <- read.csv(file, header = FALSE)
-      emptycols <- vapply(df, \(col) all(is.na(col)), logical(1))
-      df <- df[, !emptycols]
-      if (ncol(df) == 13L)
-        return(df)
-      df[,-2]
-    })
+  generate_dfs <- function(file) {
+    df <- read.csv(file, header = FALSE)
+    emptycols <- vapply(df, \(col) all(is.na(col)), logical(1))
+    df <- df[, !emptycols]
+    id_col <- 
+      data.frame(mod = rep(extract_module_num(file), nrow(df)))
+    df <- cbind(id_col, df)
+    if (ncol(df) == 14L)
+      return(df)
+    df[,-3]
+  }
   
-  hdr <- newnames <-
+  extract_module_num <- function(file) {
+    str <- basename(file)
+    as.integer(sub("(Module\\s0)(\\d)(.+csv$)", "\\2", str))
+  }
+  
+  allweeks <-
+    list.files(here::here('downloads/eval/results'), full.names = TRUE) |>
+    lapply(generate_dfs)
+  
+  hdr <-
     c(
+      "module_id",
       'time',
       'challenging',
       'ease',
