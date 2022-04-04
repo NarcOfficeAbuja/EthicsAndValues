@@ -36,9 +36,12 @@ fixdate <- function(str) {
 query_cohort <- function(qry) {
   conn <- cohort_connect()
   on.exit(RSQLite::dbDisconnect(conn))
-  rs <- RSQLite::dbSendQuery(conn, qry)
-  on.exit(RSQLite::dbClearResult(rs))
-  RSQLite::dbFetch(rs)
+  tryCatch({
+    rs <- RSQLite::dbSendQuery(conn, qry)
+    RSQLite::dbFetch(rs)
+  }, 
+  error = function(e) stop(e), 
+  finally = RSQLite::dbClearResult(rs))
 }
 
 

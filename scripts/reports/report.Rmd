@@ -23,7 +23,7 @@ barchart <- function(var, ...) {
   dat %>% 
   ggplot(aes_string(var)) + 
     geom_bar(fill = 'blue') +
-    labs(x = ...)
+    labs(x = ...) +
     theme(axis.text = element_text(face = 'bold'))
 }
 ```

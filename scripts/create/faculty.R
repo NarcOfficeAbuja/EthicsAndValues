@@ -1,5 +1,6 @@
 suppressPackageStartupMessages(library(here))
 library(naijR)
+
 local({
   source(here("scripts/helpers.R"), local = TRUE)
   dat <- read.csv(here("downloads/faculty.csv"))
