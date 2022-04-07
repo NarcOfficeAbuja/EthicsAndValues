@@ -1,0 +1,78 @@
+---
+title: "Feedback From The `r tools::toTitleCase(english::ordinal(params$cohort))` Cohort"
+author: "School of Government and Politics"
+date: "`r format(Sys.Date(), format = '%e %B, %Y')`"
+params:
+  cohort: 5
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, cache=FALSE, include = FALSE}
+knitr::read_chunk(here::here("scripts/analysis/eval.R"))
+```
+
+```{r ext-setup, include=FALSE}
+```
+
+## Participation in the evaluation
+```{r respondents}
+```
+
+```{r respondents-table}
+```
+
+```{r respondents-chart}
+```
+
+```{r attendance-respondents}
+```
+
+## Analysis of Key Responses
+### Q1. Was the module content too challenging for an average learner to understand?
+```{r challenging}
+```
+
+```{r module-challenging}
+```
+
+### Q3. Did the ideas expressed in delivering the module seem too distant from your experience?
+```{r too-distant}
+```
+
+```{r module-too-distant}
+```
+
+### Q4. How would you rate the duration of the class?
+```{r duration}
+```
+
+```{r module-duration}
+```
+
+### Q5. How long would you recommend that class session lasts?
+```{r recommend-dur}
+```
+
+### Q7. Overall, how would you rate the communication skills of the facilitator?
+```{r fac-comm}
+```
+
+```{r module-fac-comm}
+```
+
+### Q9.	Did you feel comfortable expressing yourself to your facilitator?
+```{r fac-comfort}
+```
+
+```{r module-fac-comfort}
+```
+
+### Q10. Were your training expectations fulfilled?
+```{r expectations}
+```
+
+```{r module-expectations}
+```
