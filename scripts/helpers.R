@@ -50,3 +50,34 @@ query_cohort <- function(qry) {
 cohort_connect <- function() {
   RSQLite::dbConnect(RSQLite::SQLite(), here::here("data/cohort3.db"))
 }
+
+
+
+
+fieldnames <- function(table) {
+  stopifnot(is.character(table))
+  
+  fn <- list(
+    registration = c(
+      "Timestamp",
+      "fname",
+      'mname',
+      "lname",
+      "email",
+      'country_code',
+      "mobile",
+      "location",
+      "country",
+      "dob",
+      "gender",
+      "occ",
+      "educ",
+      "how_info",
+      "prev_proj",
+      'name_proj',
+      "expect",
+      'attended'
+    )
+  )
+  fn[[table]]
+}

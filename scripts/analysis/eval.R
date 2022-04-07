@@ -1,39 +1,13 @@
-# ---- setup ----
+# ---- ext-setup ----
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
 library(dplyr)
 library(flextable)
 library(ggplot2)
 library(xtable)
+# library(lubridate)
 
 source(here::here("scripts/helpers.R"))
-
-evaldata <- read_cohort_dbtable("evaluation")
-questions <- read_cohort_dbtable("eval_ques")
-attendance <- read_cohort_dbtable("attendance")
-
-## Cleaning
-evaldata <- evaldata %>% 
-  mutate(time = as.POSIXct(time)) %>% 
-  mutate(across(contains(
-    c("module_id", "rating_dur", "fac_comm")
-  ), factor)) %>%  
-  mutate(across(contains(
-    c('challenging', 'too_distant', "fac_comfort", 'fulfil_expect')
-  ), ~ factor(.x, levels = c("Yes", "No")))) 
-
-attended <- attendance %>% 
-  filter(attended == 1) %>% 
-  group_by(mId) %>% 
-  summarise(n = sum(attended)) %>% 
-  filter(mId != 1) %>% 
-  select(-1)
-
-
-## Apply labels to the variable
-lbls <- c("Module No.", "Timestamp", questions$question_full)
-evaldata <- labelled::set_variable_labels(evaldata, .labels = lbls)
-rm(questions)
-
 
 convert_table <- function(tbl) {
   tbl %>% 
@@ -45,50 +19,99 @@ convert_table <- function(tbl) {
 
 plotModuleComparison <- function(var) {
   var.y <- enexpr(var)
-  ggplot(evaldata, aes(module_id, fill = !!var.y)) +
-    geom_bar(position = 'dodge')
+  ggplot(evaldata, aes({{var.y}})) +
+    geom_bar() +
+    facet_wrap(vars(module_id))
 }
 
+
+
+## DATA
+## Cleaning
+evalraw <- read_cohort_dbtable("evaluation")
+
+evaldata <- evalraw %>%
+  as_tibble() %>% 
+  filter(cohort_id == params$cohort) %>% 
+  mutate(
+    time = lubridate::parse_date_time(
+      time, 
+      orders = c("%m/%d/%Y %H:%M", "%Y-%m-%d %H:%M:%S"),
+      tz = "Africa/Lagos"    # i.e. Sys.timezone()
+    )
+  ) %>%
+  mutate(across(contains(c(
+    "module_id", "rating_dur", "fac_comm"
+  )), factor)) %>%
+  mutate(across(contains(
+    c('challenging', 'too_distant', "fac_comfort", 'fulfil_expect')
+  ), ~ factor(.x, levels = c("Yes", "No"))))
+
+
+## Apply labels to the variable
+questions <- read_cohort_dbtable("eval_ques")
+labelled::var_label(evaldata) <-
+  c("Module No.", "Timestamp", questions$question_full)
+rm(questions)
+
+# attendance <- read_cohort_dbtable("attendance")
+# attendata <- attendance %>%
+#   filter(cId == params$cohort) %>% 
+#   group_by(mId) %>%
+#   summarise(n = sum(attended, na.rm = TRUE)) %>%
+#   select(-1)
+
+
 # ---- respondents ----
-respondents <- table(evaldata$module_id) %>% 
-  as.data.frame() %>% 
-  bind_cols(attended) %>% 
-  setNames(c("module", "number", "attended")) %>% 
-  mutate(percent = round((number / attended) * 100, 1))
+# respondents <- evaldata$module_id %>% 
+#   table() %>% 
+#   as.data.frame() %>% 
+#   bind_cols(attendata) %>% 
+#   setNames(c("module", "number", "attended")) %>% 
+#   mutate(percent = round(number / attended * 100, 1))
 
 # ---- respondents-table ----
-flextable(respondents) %>% 
-  set_header_labels(
-    values = list(
-      module = "Module",
-      number = "No. of Respondents",
-      attended = "Attendance",
-      percent = "Response Rate (%)"
-    )
-  )
+# flextable(respondents) %>% 
+#   set_header_labels(
+#     values = list(
+#       module = "Module",
+#       number = "No. of Respondents",
+#       attended = "Attendance",
+#       percent = "Response Rate (%)"
+#     )
+#   )
 
 # ---- respondents-chart ----
-barplot(
-  with(respondents, structure(percent, names = levels(module))),
-  ylim = c(0, 40),
-  main = "Evaluation respondents",
-  xlab = "Module Number",
-  ylab = "Percentage of attendees",
-  col = 'cyan'
-)
-grid(NA, NULL, "blue", "dashed", lwd = 1.5)
+# barplot(
+#   with(respondents, structure(percent, names = levels(module))),
+#   ylim = c(0, 40),
+#   main = "Evaluation respondents",
+#   xlab = "Module Number",
+#   ylab = "Percentage of attendees",
+#   col = 'cyan'
+# )
+# grid(NA, NULL, "blue", "dashed", lwd = 1.5)
 
 ## Compare evaluation with attendance
 # ---- attendance-respondents ----
-att <- query_cohort("SELECT mid AS moduleId FROM attendance WHERE attended=1;")
-Attendance <- table(att$moduleId[att$moduleId != 1]) |> # Module 1 not evaluated
-  as.numeric()
-Evaluation <- as.numeric(table(evaldata$module_id))
-
-plot(Attendance, 
-     Evaluation, 
-     pch = 17, 
-     main = "Relationship between Attendance\nand Response to Evaluation")
+# att <- query_cohort("SELECT mid AS moduleId FROM attendance WHERE attended=1;")
+# vec.mod <- if (params$cohort == 3) {
+#   att$moduleId[att$moduleId != 1]    # Module 1 not evaluated
+# } else {
+#   att$moduleId
+# }
+#   
+# Attendance <- vec.mod |> 
+#   table() |> 
+#   as.numeric()
+# Evaluation <- evaldata$module_id |> 
+#   table() |>
+#   as.numeric()
+# 
+# plot(Attendance, 
+#      Evaluation, 
+#      pch = 17, 
+#      main = "Relationship between Attendance\nand Response to Evaluation")
 
 
 
