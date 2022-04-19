@@ -66,6 +66,7 @@ fieldnames <- function(table) {
       "email",
       'country_code',
       "mobile",
+      "organisation",
       "location",
       "country",
       "dob",

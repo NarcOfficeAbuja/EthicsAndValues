@@ -3,15 +3,18 @@ source(here::here("scripts/helpers.R"))
 
 dat <- read_cohort_dbtable("registration")
 
-categorical <- c("gender", "educ", "prev_proj", "attended")
-
 clean_coltypes <-
   function(c, n) {
-    # browser()
+    categorical <- c("gender", "prev_proj", "attended", "country")
     if (n %in% categorical)
       c <- factor(c)
-    if (n == "Timestamp")
-      c <- as.POSIXct(c)
+    if (n == "Timestamp") {
+      dt <-
+        lubridate::parse_date_time(c,
+                                   orders = c("%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M"),
+                                   tz = "Africa/Lagos")
+      c <- as.POSIXct(dt)
+    }
     if (n == "dob")
       c <- as.Date(c)
     c
