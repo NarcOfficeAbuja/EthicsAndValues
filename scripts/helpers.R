@@ -48,7 +48,7 @@ query_cohort <- function(qry) {
 
 
 cohort_connect <- function() {
-  RSQLite::dbConnect(RSQLite::SQLite(), here::here("data/cohort3.db"))
+  RSQLite::dbConnect(RSQLite::SQLite(), .cohortDbPath())
 }
 
 
@@ -81,4 +81,31 @@ fieldnames <- function(table) {
     )
   )
   fn[[table]]
+}
+
+
+
+
+rewrite_cohort_dbtable <- function(data, tblname) {
+  stopifnot(is.data.frame(data), is.character(tblname))
+  require(RSQLite)
+  dbcon <- dbConnect(SQLite(), .cohortDbPath())
+  on.exit(dbDisconnect(dbcon))
+  if (!dbIsValid(dbcon))
+    stop("Connection to the database failed")
+  if (!tblname %in% dbListTables(dbcon))
+    stop("There is no table ", tblname, " in the database")
+  if (!all(names(data) %in% dbListFields(dbcon, tblname)))
+    stop("Cannot overwrite a table with data whose fields differ from original")
+  tryCatch({
+    cat("Re-writing the database... ")
+    dbWriteTable(dbcon, tblname, data, overwrite = TRUE)
+    cat("Done\n")
+  }, error = function(e) cat("Failed\n"))
+}
+
+
+
+.cohortDbPath <- function() {
+  here::here("data/cohort3.db")
 }
