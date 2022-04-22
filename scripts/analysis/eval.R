@@ -118,7 +118,7 @@ rm(questions)
 
 ## Compare evaluation with attendance
 # ---- attendance-respondents ----
-# att <- query_cohort("SELECT mid AS moduleId FROM attendance WHERE attended=1;")
+# att <- query_data("SELECT mid AS moduleId FROM attendance WHERE attended=1;")
 # vec.mod <- if (params$cohort == 3) {
 #   att$moduleId[att$moduleId != 1]    # Module 1 not evaluated
 # } else {

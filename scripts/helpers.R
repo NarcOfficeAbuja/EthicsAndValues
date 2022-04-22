@@ -11,15 +11,23 @@ create_cohort_dbtable <- function(df, tblname, ...) {
 
 
 
-read_cohort_dbtable <- function(tbl) {
+read_cohort_dbtable <- function(tbl, cohort = NULL) {
+  require(RSQLite)
   tryCatch({
     cat("Connecting to the database ... ")
     connect <- cohort_connect()
-    dat <- RSQLite::dbReadTable(connect, tbl)
+    on.exit(dbDisconnect(connect))
+    
+    dat <- if (is.null(cohort))
+      dbReadTable(connect, tbl)
+    else {
+      qry <- 
+        sprintf("SELECT * FROM %s WHERE cohort_id = %i;", tbl, cohort)
+      dbGetQuery(connect, qry)
+    }
     cat("OK\n")
   }, error = function(e)
-    cat("Failed\n"),
-  finally = RSQLite::dbDisconnect(connect))
+    cat("Failed\n"))
   dat
 }
 
@@ -33,15 +41,19 @@ fixdate <- function(str) {
 
 
 
-query_cohort <- function(qry) {
+query_data <- function(qry) {
+  stopifnot(is.character(qry))
+  require(RSQLite)
+  
   conn <- cohort_connect()
-  on.exit(RSQLite::dbDisconnect(conn))
+  on.exit(dbDisconnect(conn))
+  
   tryCatch({
-    rs <- RSQLite::dbSendQuery(conn, qry)
-    RSQLite::dbFetch(rs)
+    rs <- dbSendQuery(conn, qry)
+    dbFetch(rs)
   }, 
   error = function(e) stop(e), 
-  finally = RSQLite::dbClearResult(rs))
+  finally = dbClearResult(rs))
 }
 
 

@@ -3,7 +3,7 @@ library(mosaic)
 
 source(here::here('scripts/helpers.R'))
 
-dat <- query_cohort("SELECT module_name AS module, attended, last_name 
+dat <- query_data("SELECT module_name AS module, attended, last_name 
                     FROM modules, attendance, students 
                     WHERE students.id=sId AND modules.id=mId;")
 

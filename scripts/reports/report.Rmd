@@ -1,75 +1,289 @@
 ---
-title: "SOGP Values and Ethics Course Evaluation"
-author: ''
-date: "`r Sys.Date()`"
+title: "Review of Data from SOGP Ethics & Values Course"
+author: "Victor Ordu"
+Date: "`r Sys.Date()`"
 output:
+  word_document: default
   html_document:
     df_print: paged
+  pdf_document: default
+params:
+  cohort: 5
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
 library(tidyverse)
-library(RSQLite)
+library(labelled)
+library(flextable)
 
 source(here::here('scripts/helpers.R'))
 
-dat <- read_cohort_dbtable('evaluation')
-dat <- dat %>% 
-  mutate(across(all_of(c(3, 5, 6, 8, 11, 12) - 1), factor))
+opts_chunk$set(echo = FALSE, warning = FALSE)
 
-# Functions
-barchart <- function(var, ...) {
-  dat %>% 
-  ggplot(aes_string(var)) + 
-    geom_bar(fill = 'blue') +
-    labs(x = ...) +
-    theme(axis.text = element_text(face = 'bold'))
+reg <- read_cohort_dbtable("registration", params$cohort)
+m.reg <- reg %>%
+  as_tibble() %>%
+  mutate(hindrance = str_split(hindrance, "\\n") %>% map(sort)) %>%
+  mutate(country = str_replace(country, "Nigria|Rivers.+", "Nigeria") %>%
+           str_remove("Wales\\,\\s") %>% 
+           str_replace("Country", ""))
+
+## Create new columns with the multiple responses split up and
+## spread out into them.
+multichoice <- c("Data", "Network", "None", "Schedule", "Device")
+for (i in multichoice) {
+  m.reg[[i]] <- map_chr(m.reg$hindrance, function(elem) {
+    val <- grep(i, elem, ignore.case = TRUE, value = TRUE)
+    if (!length(val))
+      return(NA_character_)
+    val
+  })
+  lbl <- na.omit(unique(m.reg[[i]]))
+  attributes(lbl) <- NULL
+  m.reg[[i]] <- ifelse(is.na(m.reg[[i]]), 0, 1)
+  var_label(m.reg[[i]]) <- lbl
 }
-```
+m.reg$hindrance <- NULL
 
+## The Evaluation questions (short form will be requested for labels)
+qry.ques <- "SELECT question_short FROM eval_ques;"
+ques <- unlist(query_data(qry.ques))
+ques <- unname(ques[-2])  # Question was removed
+
+categorical <-
+  c(
+    "challenging",
+    "too_distant",
+    "rating_dur",
+    "fac_comm",
+    "fac_expert",
+    "fac_comfort",
+    "fulfil_expect"
+  )
+
+## The post-module evaluation data proper
+eval.dat <- read_cohort_dbtable('evaluation', params$cohort)
+eval.dat <- eval.dat %>% 
+  select(-cohort_id) %>% 
+  mutate(across(all_of(categorical), factor)) %>% 
+  mutate(across(where(~ any(grepl("^(Yes|No)$", .x))), ~ factor(.x, c("Yes", "No")))) %>% 
+  mutate(rating_dur = factor(rating_dur, c("Too short", "Just right", "Too long"))) %>% 
+  mutate(fac_expert = factor(fac_expert, c("Low", "Average", "Acceptable", "Good", "High"))) %>% 
+  mutate(fac_comm = factor(fac_comm, c("Low", "Average", "High")))
+
+lbls <- c("Module", "Time", ques)
+var_label(eval.dat) <- lbls
+
+
+## Functions
+barchart <- function(data, var, col = "blue", disaggregate = FALSE, flip = FALSE) {
+  stopifnot(is.data.frame(data), is.character(var))
+  lab <- var_label(data[[var]])
+  if (is.null(lab) || is.na(lab))
+    lab <- var
+  p <- data %>% 
+    mutate(module_name = paste("Module", module_id)) %>% 
+    ggplot(aes_string(var)) +
+    geom_bar(fill = col) + 
+    labs(x = lab) +
+    theme(axis.text = element_text(face = 'bold'))
+  if (flip)
+    p <- p + coord_flip()
+  if (disaggregate)
+    p <- p + facet_wrap(vars(module_name))
+  print(p)
+}
+
+## Gets the data from a flextable object
+get_ft_data <- function(t) {
+  stopifnot(inherits(t, "flextable"))
+  t$body$dataset
+}
+
+## Fetches a specific value from a flextable object
+get_value <-
+  function(data,
+           base.col = NULL,
+           item = NULL,
+           value,
+           stat = NULL) {
+    if (inherits(data, 'flextable'))
+      data <- get_ft_data(data)
+    stopifnot(is.data.frame(data))
+    nms <- names(data)
+    col <- grep(value, nms, ignore.case = TRUE)
+    if (!length(col))
+      stop("No match fo the regular expression 'value'")
+    if (length(col) > 1L)
+      stop("The regular expression 'value' should match just one column")
+    base.col <- data[[grep(base.col, nms, ignore.case = TRUE)]]
+    if (!is.null(stat)) {
+      base.nms <- if (is.factor(base.col))
+        levels(base.col)
+      else
+        base.col
+      val.col <- structure(data[[col]], names = base.nms)
+      ans <- if (stat == "sort")
+        do.call(stat, list(val.col))
+      else
+        do.call(stat, list(val.col, na.rm = TRUE))
+      if (stat == 'max' || stat == 'min') {
+        are <- val.col %in% ans
+        ii <- which(are)
+        ans <- rep(ans, length(ii))
+        names(ans) <- base.col[ii]
+      }
+    }
+    if (!is.null(item)) {
+      row <- grep(item, base.col, ignore.case = TRUE)
+      if (!row)
+        stop("No row of 'base.col' matched the regular expression 'item'")
+      ans <- data[row, col]
+    }
+    if (grepl("perc", nms[[col]], ignore.case = TRUE)) {
+      nn <- names(ans)
+      ans <- if (ans)
+        paste0(round(ans, 1), "%")
+      else
+        "none"
+      names(ans) <- nn
+    }
+    ans
+  }
+```
 
 # Introduction
-This is the report on the outcome of the course evaluation data provided by participants.
+```{r intro-inline}
+qry.txt <- "SELECT %s FROM cohorts wHERE id = 5;"
+start.date <- as.character(query_data(sprintf(qry.txt, "start_date")))
+end.date <- as.character(query_data(sprintf(qry.txt, "end_date")))
+my_date <- function(dt) format(as.Date(dt), "%d %B, %Y")
+```
 
-# Responses
-## Whether the content was found to be too challenging
+This is a review of the data collected for the School of Government and Politics (SOGP) Ethics and Values Course, focusing on Cohort `r params$cohort`, which ran from `r my_date(start.date)` to `r my_date(end.date)`..
+
+# Analysis of the Data
+## Registrations
+
+```{r reg-inline}
+att <- filter(reg, attended == 1)
+total <- nrow(reg)
+perc.att <- round((num.att <- nrow(att)) / total * 100, 1)
+countries <- unique(m.reg$country)
+countries <- countries[countries != ""]
+```
+
+A total of `r total` persons registered for the course, out of whom `r num.att` actually attended any of the modules (i.e. `r perc.att`%). Registrations came from `r length(countries)` countries, namely `r combine_words(sort(countries))`.
+
+```{r reg-plot, fig.cap="Proportion of Registered Learners Who Attended the Course"}
+pie(
+  c(total - num.att, num.att),
+  radius = 1.05,
+  col = c("red", "green"),
+  labels = c(
+    paste0("Not attended (", 100 - perc.att, "%)"),
+    paste0("Attended (", perc.att, "%)")
+  )
+)
+```
+
+Those that registered were asked to indicate possible factors that could hinder them from participating in the programme. These include a tight schedule, phone or device issues, network issues, and lack of data. 
+
+```{r hindrances-table, tab.cap = "Hindrances to participation"}
+dt <- ufs::multiResponse(m.reg, multichoice)
+ft <- flextable(dt) %>% 
+  set_header_labels(Option = "Response") %>% 
+  colformat_double(j = 3:4, digits = 1) %>% 
+  bold(i = 6) %>% 
+  hline(i = 5:6) %>% 
+  width(width = 1)
+ft
+```
+
+Only `r get_value(ft, "option", "device", "percent.+response")` of the respondents indicated that issues with their device could be a hindrance, while the other potential hindrances ranged from 22 - 24% in importance.
+
+```{r hindrances-plot, fig.cap="Possible Hindrances to Participation"}
+ft$body$dataset %>% 
+  filter(Option != "Total") %>% 
+  rename(Hindrance = Option) %>% 
+  ggplot(aes(Hindrance, `Percentage of (381) cases`)) +
+  geom_col(fill = "black", col = "red") +
+  scale_x_discrete(aesthetics = "Hindrance", palette = "Set1")
+```
+
+## Responses to Evaluation Questionnaire
+After each module, an evaluation questionnaire was provided for learner feedback. Below is the summary of the analysis of their responses.
+
+### Difficulty of module content
+
+```{r challenging-course, fig.cap="Course content was challenging"}
+barchart(eval.dat, "challenging", col = "red")
+```
+
+```{r challenging-modules, eval=FALSE, fig.cap="Module content found challenging"}
+barchart(eval.dat, "challenging", col = "red", disaggregate = TRUE)
+```
+
+### Ideas presented were distant
+
+```{r distant-course, fig.cap="Course content adjudged 'too distant'"}
+barchart(eval.dat, "too_distant")
+```
+
+```{r distant-module, fig.cap="Modules adjudged 'too distant "}
+barchart(eval.dat, "too_distant", disaggregate = T)
+```
+
+
+### Rating on class duration
+
+```{r duration, fig.cap="Adequacy of class duration"}
+barchart(eval.dat, 'rating_dur', col = "darkgreen")
+```
+```{r duration-faceted, eval=FALSE, fig.cap="Adequacy of each module's duration"}
+barchart(eval.dat, 'rating_dur', col = "darkgreen", disaggregate = TRUE)
+
+```
+
+### Recommended duration of class
+
+```{r recommended-duration-data}
+recdur <- table(eval.dat$recomm_dur)
+recdur <- structure(as.numeric(recdur), names = names(recdur))
+```
+
+Most of the respondents recommended a `r names(recdur)[which.max(recdur)]`-hour duration for the course modules.
+
+```{r recommended-duration-plot, fig.cap="Recommended Duration of Module Sessions"}
+dotchart(
+  recdur,
+  pch = 18,
+  color = "blue",
+  lcolor = "red",
+  cex = 1.2, 
+  xlab = "No. of Responses",
+  ylab = "Proposed Length (hours)"
+)
+```
+
+### Communication skills of facilitator
+```{r fac-comm, fig.cap="Communicationi Skill of the facilitators"}
+barchart(eval.dat, 'fac_comm', col = "brown", disaggregate = TRUE)
+```
+
+### Facilitator's expertise
 ```{r}
-barchart("challenging", "Content was too challenging")
+barchart(eval.dat, 'fac_expert', col = "purple", disaggregate = TRUE, flip = TRUE)
 ```
 
-## Wether the ideas expressed seemed too distant
+### Feel comfortable expressing oneself to facilitator
 ```{r}
-barchart("too_distant")
+barchart(eval.dat, 'fac_comfort', col = "cyan")
 ```
 
-## Rating on class duration
-```{r}
-barchart('rating_dur')
-```
-
-## Recommended duration of class
-```{r, warning=FALSE, message=FALSE}
-ggplot(dat, aes_string("recomm_dur")) + geom_histogram()
-```
-
-## Communication skills of facilitator
-```{r}
-barchart('fac_comm')
-```
-
-## Facilitator's expertise
-```{r}
-# barchart('fac_expert')
-```
-
-## Feel comfortable expressing oneself to facilitator
-```{r}
-barchart('fac_comfort')
-```
-
-## General comments
-Notable comments from participants include:
+### General comments
+Notable comments from participants on the course and its delivery include:
 
 ```{r comments, eval= Sys.Date() < "2021-08-31"}
 cat('
@@ -84,9 +298,27 @@ cat('
 ')
 ```
 
+```{r comments-2, eval= params$cohort == 5, results='asis'}
+cat('
+> *"This topic was so beautiful, simple and well understood, because it dealt with our everyday life experience."*
+
+> *"This should really be taught in all schools in Nigeria to also aid National development"*
+
+> *"Very useful in understanding how citizens can carry their civic responsibilities ethically."*
+
+> *"It changed my view generally in a positive way. Thanks."*
+
+> *"I think is good but I have to go through it for better understanding."*
+
+> *"With the class coming to an end, I have got it that, I belong to the right ground for growth."*
+
+> *"I was able to improve my capacity building. The training was very interactive, educative and interesting."*
+')
+```
 
 
-# Observations/Recommendation
+### Observations/Recommendation 
+Some of the course participants also made some observations and recommendations related to some issues they encountered:
 
 ```{r recommendations, eval= Sys.Date() < "2021-08-31"}
 cat('
@@ -105,3 +337,15 @@ cat('
 ')
 ```
 
+
+```{r student-recommend, eval = params$cohort == 5, results='asis'}
+cat('
+> *"The broadband can be improved to assist the network connectivity."*
+
+> *"My concern is the problem of network, it is really not good for better assimilation of knowledge"*
+
+> *"I didnt get the best part of this module, there was power outage."*
+
+> *"I\'ll be glad if the management can consider sending a soft copy of the course module to us for download and future reference."*
+')
+```
