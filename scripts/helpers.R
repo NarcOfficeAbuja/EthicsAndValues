@@ -13,21 +13,21 @@ create_cohort_dbtable <- function(df, tblname, ...) {
 
 read_cohort_dbtable <- function(tbl, cohort = NULL) {
   require(RSQLite)
+  
   tryCatch({
-    cat("Connecting to the database ... ")
+    cat("Reading from the database ... ")
     connect <- cohort_connect()
-    on.exit(dbDisconnect(connect))
-    
-    dat <- if (is.null(cohort))
-      dbReadTable(connect, tbl)
-    else {
-      qry <- 
-        sprintf("SELECT * FROM %s WHERE cohort_id = %i;", tbl, cohort)
-      dbGetQuery(connect, qry)
-    }
+    dat <- dbReadTable(connect, tbl)
     cat("OK\n")
-  }, error = function(e)
-    cat("Failed\n"))
+  }, 
+  error = function(e) {
+    cat("Failed\n")
+    stop(conditionMessage(e), call. = FALSE)
+  },
+  finally = dbDisconnect(connect))
+  
+  if (!is.null(cohort))
+    dat <- subset(dat, cohort_id == cohort)
   dat
 }
 

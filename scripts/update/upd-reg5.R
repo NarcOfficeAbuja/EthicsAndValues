@@ -55,23 +55,30 @@ final.reg <- ureg %>%
       str_replace("(\\d+)(st|th|rd|nd)", "\\1") %>% 
       str_remove("^\\d{1,2}\\s\\w+$") %>% 
       str_remove("12 Of June") %>% 
-      str_replace("(Sep)(t\\.)", "\\1"),
+      str_replace("(Sep)(t\\.?)", "\\1"),
     dob = lubridate::parse_date_time(
       dob,
       c(
         "%d/%m/%Y",
+        "%d/%m.%Y",
         "%d-%b-%y",
         "%d-%B-%y",
         "%d-%m-%Y",
         "%d %B %Y",
         "%d %B, %Y",
         "%d %b %Y",
+        "%d %b. %Y",
         "%d.%m.%Y",
         "%d,%m,%Y",
         "%B %d, %Y",
+        "%B %d,%Y",
+        "%B %d %Y",
         "%Y"
       )
-    )
+    ) %>% 
+      as.Date() %>% 
+      as.character() %>% 
+      suppressWarnings()
   )
 
 tryCatch({

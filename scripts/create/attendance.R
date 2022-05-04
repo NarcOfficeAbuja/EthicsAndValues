@@ -25,10 +25,12 @@ reg <- read.csv(fpath, na.strings = "")
 nreg <- reg %>%
   mutate(country_code = NA_character_,
          mname = NA_character_,
-         country = NA_character_) %>%
+         country = NA_character_,
+         org = NA_character_) %>%
   relocate(country_code, .after = Email.address) %>%
   relocate(mname, .after = First.name) %>%
   relocate(country, .after = Residential.Address) %>%
+  relocate(org, .before = Residential.Address) %>% 
   select(-Name.of.Institution.of.Higher.learning) %>%
   relocate(Have.you.been.involved.in.any.social.reforms.campaign..project.,
            .after = How.did.you.get.to.know.about.the.Values.Course.) %>%
@@ -118,6 +120,7 @@ qry <- 'CREATE TABLE "registration" (
 	"email"	TEXT,
 	"country_code"	TEXT,
 	"mobile"	TEXT,
+	"organisation" TEXT,
 	"location"	TEXT,
 	"country"	TEXT,
 	"dob"	TEXT,
@@ -128,6 +131,7 @@ qry <- 'CREATE TABLE "registration" (
 	"prev_proj"	TEXT,
 	"name_proj"	TEXT,
 	"expect"	TEXT,
+	"hindrance" TEXT,
 	"attended"	INTEGER,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );'
